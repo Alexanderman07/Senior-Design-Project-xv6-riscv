@@ -24,6 +24,7 @@ find(char *path, char *targetfile)
 
   switch(st.type){
   case T_FILE:
+    //printf("found in case");
     printf("%s\n", buf);
     break;
 
@@ -48,7 +49,8 @@ find(char *path, char *targetfile)
       if(st.type == T_DIR && strcmp(".", de.name) != 0 && strcmp("..", de.name) != 0){
         find(buf, targetfile);
       }
-      if(strcmp(de.name, targetfile)==0){
+      else if(strcmp(de.name, targetfile)==0){
+        //printf("found in find.c");
         printf("%s\n", buf);
       }
     }

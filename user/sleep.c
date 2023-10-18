@@ -6,7 +6,6 @@ int
 main(int argc, char *argv[])
 {
     int k;
-
     if(argc < 2){
     fprintf(2, "Usage: sleep files...\n");
     exit();
