@@ -4,18 +4,6 @@
 #include "kernel/fs.h"
 #include "kernel/param.h"
 
-
-int
-readcommand(char *buf, int nbuf)
-{
-    fprintf(2, "$ ");
-    memset(buf, 0, nbuf);
-    gets(buf, nbuf);
-    if(buf[0] == 0) // EOF
-        return -1;
-    return 0;
-}
-
 int
 main(int argc, char *argv[])
 {
@@ -40,7 +28,7 @@ main(int argc, char *argv[])
                 for(int j = 1; j < argc; j++){
                     args[j-1] = argv[j]; //ignore initial xargs call
                 }
-                args[argc-1] = buf; //slot no longer used, so the space is included in buf
+                args[argc-1] = buf; //slot no longer used, so the space is included in buf to access all commands on all lines
                 int pid = fork();
                 if(pid == 0){
                     exec(args[0], args);
