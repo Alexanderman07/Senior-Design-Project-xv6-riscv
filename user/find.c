@@ -68,11 +68,6 @@ main(int argc, char *argv[])
     exit();
   }
 
-  if(argc < 2){
-    find(".", argv[1]);
-    exit();
-  }
-
   find(argv[1], argv[2]);
   exit();
 }
