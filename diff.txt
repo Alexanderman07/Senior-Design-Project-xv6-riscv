@@ -1,0 +1,196 @@
+diff --git a/mycode.diff b/mycode.diff
+index e69de29..8de3e4a 100644
+--- a/mycode.diff
++++ b/mycode.diff
+@@ -0,0 +1,191 @@
++diff --git a/#.vscode# b/#.vscode#
++new file mode 100644
++index 0000000..e69de29
++diff --git a/Makefile b/Makefile
++index 76f220b..9d6cd06 100644
++--- a/Makefile
+++++ b/Makefile
++@@ -140,6 +140,9 @@ UPROGS=\
++ 	$U/_bcachetest\
++ 	$U/_mounttest\
++ 	$U/_crashtest\
+++	$U/_sleep\
+++	$U/_find\
+++	$U/_xargs\
++ 
++ fs.img: mkfs/mkfs README user/xargstest.sh $(UPROGS)
++ 	mkfs/mkfs fs.img README user/xargstest.sh $(UPROGS)
++@@ -166,7 +169,7 @@ endif
++ 
++ QEMUEXTRA = -drive file=fs1.img,if=none,format=raw,id=x1 -device virtio-blk-device,drive=x1,bus=virtio-mmio-bus.1
++ 
++-QEMUOPTS = -machine virt -kernel $K/kernel -m 3G -smp $(CPUS) -nographic
+++QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 3G -smp $(CPUS) -nographic
++ QEMUOPTS += -drive file=fs.img,if=none,format=raw,id=x0 -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0
++ 
++ qemu: $K/kernel fs.img
++diff --git a/doc/lab1.md b/doc/lab1.md
++new file mode 100644
++index 0000000..e69de29
++diff --git a/gradelib.pyc b/gradelib.pyc
++new file mode 100644
++index 0000000..3191774
++Binary files /dev/null and b/gradelib.pyc differ
++diff --git a/mycode.diff b/mycode.diff
++new file mode 100644
++index 0000000..e69de29
++diff --git a/user/find.c b/user/find.c
++new file mode 100644
++index 0000000..71e29fc
++--- /dev/null
+++++ b/user/find.c
++@@ -0,0 +1,73 @@
+++#include "kernel/types.h"
+++#include "kernel/stat.h"
+++#include "user/user.h"
+++#include "kernel/fs.h"
+++
+++void
+++find(char *path, char *targetfile)
+++{
+++  char buf[512], *p;
+++  int fd;
+++  struct dirent de;
+++  struct stat st;
+++
+++  if((fd = open(path, 0)) < 0){
+++    fprintf(2, "find: cannot open %s\n", path);
+++    return;
+++  }
+++
+++  if(fstat(fd, &st) < 0){
+++    fprintf(2, "find: cannot stat %s\n", path);
+++    close(fd);
+++    return;
+++  }
+++
+++  switch(st.type){
+++  case T_FILE:
+++    //printf("found in case");
+++    printf("%s\n", buf);
+++    break;
+++
+++  case T_DIR:
+++    if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf){
+++      printf("find: path too long\n");
+++      break;
+++    }
+++
+++    strcpy(buf, path);
+++    p = buf+strlen(buf);
+++    *p++ = '/';
+++    while(read(fd, &de, sizeof(de)) == sizeof(de)){
+++      if(de.inum == 0)
+++        continue;
+++      memmove(p, de.name, DIRSIZ);
+++      p[DIRSIZ] = 0;
+++      if(stat(buf, &st) < 0){
+++        printf("find: cannot stat %s\n", buf);
+++        continue;
+++      }
+++      if(st.type == T_DIR && strcmp(".", de.name) != 0 && strcmp("..", de.name) != 0){
+++        find(buf, targetfile);
+++      }
+++      else if(strcmp(de.name, targetfile)==0){
+++        //printf("found in find.c");
+++        printf("%s\n", buf);
+++      }
+++    }
+++    break;
+++  }
+++  close(fd);
+++}
+++
+++int
+++main(int argc, char *argv[])
+++{
+++
+++  if(argc < 3){
+++    fprintf(3, "Usage: find files...\n");
+++    exit();
+++  }
+++
+++  find(argv[1], argv[2]);
+++  exit();
+++}
++\ No newline at end of file
++diff --git a/user/sleep.c b/user/sleep.c
++new file mode 100644
++index 0000000..f9a389e
++--- /dev/null
+++++ b/user/sleep.c
++@@ -0,0 +1,17 @@
+++#include "kernel/types.h"
+++#include "kernel/stat.h"
+++#include "user/user.h"
+++
+++int
+++main(int argc, char *argv[])
+++{
+++    int k;
+++    if(argc < 2){
+++    fprintf(2, "Usage: sleep files...\n");
+++    exit();
+++  }
+++
+++    k = atoi(argv[1]);
+++    sleep(k);
+++    exit();
+++}
++\ No newline at end of file
++diff --git a/user/xargs.c b/user/xargs.c
++new file mode 100644
++index 0000000..870cc52
++--- /dev/null
+++++ b/user/xargs.c
++@@ -0,0 +1,44 @@
+++#include "kernel/types.h"
+++#include "kernel/stat.h"
+++#include "user/user.h"
+++#include "kernel/fs.h"
+++#include "kernel/param.h"
+++
+++int
+++main(int argc, char *argv[])
+++{
+++    int n;
+++    char *args[MAXARG];
+++    char buf[512];
+++    int space = 0;
+++    if(argc < 2){
+++        fprintf(2, "Usage: xargs command...\n");
+++        exit();
+++    }
+++
+++    /*for (int i = 0; i < argc; i++) {
+++        printf("argv[%d]: %s\n", i, argv[i]);
+++    }
+++    printf("Number of arguments: %d\n", argc);*/
+++    while((n = read(0, buf, sizeof(buf))) > 0){
+++        for(int k = 0; k < n; k++){
+++            if(buf[k] == '\n'){
+++                buf[k]= space; //make the new line essentially null
+++                //printf("buf[%d]: %s\n", k, buf[k]);
+++                for(int j = 1; j < argc; j++){
+++                    args[j-1] = argv[j]; //ignore initial xargs call
+++                }
+++                args[argc-1] = buf; //slot no longer used, so the space is included in buf to access all commands on all lines
+++                int pid = fork();
+++                if(pid == 0){
+++                    exec(args[0], args);
+++                    exit();
+++                }
+++                else {
+++                    wait();
+++                }
+++            }
+++        }
+++    }
+++    exit();
+++}
++\ No newline at end of file
