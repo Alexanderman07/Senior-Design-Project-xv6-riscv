@@ -46,7 +46,10 @@ usertrap(void)
   w_stvec((uint64)kernelvec);
 
   struct proc *p = myproc();
-  
+  //uint64 fault_15 = 0x000000000000000f;
+  //uint64 fault_13 = 0x000000000000000D;
+  uint64 flt = r_stval();
+
   // save user program counter.
   p->tf->epc = r_sepc();
   
@@ -67,6 +70,25 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if((r_scause()==13) || (r_scause()==15)) {
+    if(flt >= p->sz){
+      p->killed = 1;
+      
+    }
+
+    uint64 rnd_dwn = PGROUNDDOWN(flt); //round va that caused page fault down 
+    char *pge = kalloc(); //allocate a page of physical memory
+
+    if(pge == 0){ //if memory cannot be allocated, kill process
+      p->killed = 1;
+    }
+
+    memset(pge, 0, PGSIZE);
+    if(mappages(p->pagetable, rnd_dwn, PGSIZE, (uint64)pge, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+      kfree(pge); //if mappages is unsuccessful (i.e. != 0)
+      p->killed = 1;
+    }
+
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
