@@ -71,9 +71,9 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else if((r_scause()==13) || (r_scause()==15)) {
-    if(flt >= p->sz){
+    if(flt >= p->sz || flt <= p->ustack){
       p->killed = 1;
-      
+      exit(-1);
     }
 
     uint64 rnd_dwn = PGROUNDDOWN(flt); //round va that caused page fault down 
@@ -81,12 +81,14 @@ usertrap(void)
 
     if(pge == 0){ //if memory cannot be allocated, kill process
       p->killed = 1;
+      exit(-1);
     }
 
     memset(pge, 0, PGSIZE);
     if(mappages(p->pagetable, rnd_dwn, PGSIZE, (uint64)pge, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
       kfree(pge); //if mappages is unsuccessful (i.e. != 0)
       p->killed = 1;
+      exit(-1);
     }
 
   } else {

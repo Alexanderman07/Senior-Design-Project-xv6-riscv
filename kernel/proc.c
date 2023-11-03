@@ -266,7 +266,7 @@ fork(void)
   np->sz = p->sz;
 
   np->parent = p;
-
+  np->ustack = p -> ustack;
   // copy saved user registers.
   *(np->tf) = *(p->tf);
 

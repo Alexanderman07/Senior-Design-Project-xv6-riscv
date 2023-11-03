@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -78,8 +80,10 @@ kvminithart()
 static pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
-  if(va >= MAXVA)
-    panic("walk");
+  if(va >= MAXVA){
+    return 0;
+  }
+    //panic("walk");
 
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
@@ -103,6 +107,10 @@ walkaddr(pagetable_t pagetable, uint64 va)
 {
   pte_t *pte;
   uint64 pa;
+
+  if(va >= MAXVA){
+    return 0;
+  }
 
   pte = walk(pagetable, va, 0);
   if(pte == 0)
@@ -160,9 +168,9 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
-    if(*pte & PTE_V){
+    if(*pte & PTE_V)
       continue;
-    }
+    
       //panic("remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
@@ -203,7 +211,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
       a += PGSIZE;
       continue;
     }
-    if(PTE_FLAGS(*pte) == PTE_V)
+    if(PTE_FLAGS(*pte) == PTE_V){
+      //panic("uvmunmap: not a leaf");
+      continue;
+    }
       //panic("uvmunmap: not a leaf");
       //continue;
     if(do_free){
@@ -302,7 +313,7 @@ freewalk(pagetable_t pagetable)
       freewalk((pagetable_t)child);
       pagetable[i] = 0;
     } else if(pte & PTE_V){
-      //zpanic("freewalk: leaf");
+      //panic("freewalk: leaf");
       continue;
     }
   }
@@ -380,10 +391,29 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
-
+  //uint64 flt = r_stval();
+  struct proc *p = myproc();
+  
   while(len > 0){
-    va0 = (uint)PGROUNDDOWN(dstva);
+    va0 = PGROUNDDOWN(dstva);
     pa0 = walkaddr(pagetable, va0);
+    if(pa0==0){
+      //return -1;
+      //uint64 rnd_dwn = PGROUNDDOWN(flt); //round va that caused page fault down 
+      char *pge = kalloc(); //allocate a page of physical memory
+      if(pge == 0){ //if memory cannot be allocated, kill process
+        //p->killed = 1;
+        return -1;
+      }
+
+      memset(pge, 0, PGSIZE);
+      if(mappages(p->pagetable, va0, PGSIZE, (uint64)pge, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+        kfree(pge); //if mappages is unsuccessful (i.e. != 0)
+        //p->killed = 1;
+        return -1;
+      }
+      pa0 = (uint64)pge;
+    }
       //return -1;
     n = PGSIZE - (dstva - va0);
     if(n > len)
@@ -405,10 +435,29 @@ int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
   uint64 n, va0, pa0;
+  //uint64 flt = r_stval();
+  struct proc *p = myproc();
 
   while(len > 0){
-    va0 = (uint)PGROUNDDOWN(srcva);
+    va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
+    if(pa0 == 0) {
+      //return -1;
+      //uint64 rnd_dwn = PGROUNDDOWN(flt); //round va that caused page fault down 
+      char *pge = kalloc(); //allocate a page of physical memory
+      if(pge == 0){ //if memory cannot be allocated, kill process
+        //p->killed = 1;
+        return -1;
+      }
+
+      memset(pge, 0, PGSIZE);
+      if(mappages(p->pagetable, va0, PGSIZE, (uint64)pge, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+        kfree(pge); //if mappages is unsuccessful (i.e. != 0)
+        //p->killed = 1;
+        return -1;
+      }
+      pa0 = (uint64)pge;
+    }
       //return -1;
     n = PGSIZE - (srcva - va0);
     if(n > len)
@@ -432,12 +481,30 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 {
   uint64 n, va0, pa0;
   int got_null = 0;
+  //uint64 flt = r_stval();
+  struct proc *p2 = myproc();
 
   while(got_null == 0 && max > 0){
-    va0 = (uint)PGROUNDDOWN(srcva);
+    va0 = PGROUNDDOWN(srcva);
     pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
+    if(pa0 == 0){
+      //return -1;
+      //uint64 rnd_dwn = PGROUNDDOWN(flt); //round va that caused page fault down 
+      char *pge = kalloc(); //allocate a page of physical memory
+      if(pge == 0){ //if memory cannot be allocated, kill process
+        //p->killed = 1;
+        return -1;
+      }
+      
+      memset(pge, 0, PGSIZE);
+      if(mappages(p2->pagetable, va0, PGSIZE, (uint64)pge, PTE_W|PTE_X|PTE_R|PTE_U) != 0){
+        kfree(pge); //if mappages is unsuccessful (i.e. != 0)
+        //p2->killed = 1;
+        return -1;
+      }
+      pa0 = (uint64)pge;
+    }
+      //return -1;
     n = PGSIZE - (srcva - va0);
     if(n > max)
       n = max;
