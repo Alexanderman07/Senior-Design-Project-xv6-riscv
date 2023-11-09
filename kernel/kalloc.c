@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
+uint64 record[100000];
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -69,9 +70,10 @@ void *
 kalloc(void)
 {
   struct run *r;
-
+  
   acquire(&kmem.lock);
   r = kmem.freelist;
+  record[(uint64)end] = 1;
   if(r)
     kmem.freelist = r->next;
   release(&kmem.lock);
