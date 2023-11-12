@@ -86,6 +86,9 @@ kalloc(void)
   return (void*)r;
 }
 
-int Counter_increment(){
-  
+void Counter_increment(void *pa){
+  struct run *r = pa;
+  acquire(&kmem.lock);
+  r->counter+=1;
+  release(&kmem.lock);
 }
