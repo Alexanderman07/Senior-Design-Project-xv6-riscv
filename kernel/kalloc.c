@@ -17,6 +17,7 @@ extern char end[]; // first address after kernel.
 
 struct run {
   struct run *next;
+  int counter;
 };
 
 struct {
@@ -60,6 +61,7 @@ kfree(void *pa)
   acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
+  r->counter -= 1;
   release(&kmem.lock);
 }
 
@@ -73,7 +75,8 @@ kalloc(void)
   
   acquire(&kmem.lock);
   r = kmem.freelist;
-  record[(uint64)end] = 1;
+  r->counter = 1;
+  //record[(uint64)end] = 1;
   if(r)
     kmem.freelist = r->next;
   release(&kmem.lock);
@@ -81,4 +84,8 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+int Counter_increment(){
+  
 }
