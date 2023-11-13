@@ -23,6 +23,7 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
+  //int counter[(PHYSTOP-KERNBASE)/PGSIZE];
 } kmem;
 
 void
@@ -75,9 +76,11 @@ kalloc(void)
   
   acquire(&kmem.lock);
   r = kmem.freelist;
-  r->counter = 1;
+  //r->counter = 1;
   //record[(uint64)end] = 1;
   if(r)
+    //int index = (uint64)r / PGSIZE;
+    //counter[index] = 1;
     kmem.freelist = r->next;
   release(&kmem.lock);
 
