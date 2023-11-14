@@ -23,7 +23,7 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-  //int counter[(PHYSTOP-KERNBASE)/PGSIZE];
+  int counter[(PHYSTOP-KERNBASE)/PGSIZE];
 } kmem;
 
 void

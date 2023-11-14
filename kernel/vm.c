@@ -331,18 +331,21 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    flags &= ~PTE_W; //clear PTE in both child and parent
+    //if((mem = kalloc()) == 0)
+    //  goto err;
+    //memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){ //changed to pa to map parent's physical to child's virtual page
+      //kfree(mem);
       goto err;
     }
+    *pte |= PTE_flag;
+    Counter_increment((void *)pa);
   }
   return 0;
 
  err:
-  uvmunmap(new, 0, i, 1);
+  uvmunmap(new, 0, i/PGSIZE, 1);
   return -1;
 }
 
