@@ -71,10 +71,32 @@ usertrap(void)
     //modified
     //uint64 flt = r_stval();
     uint64 rnd_dwn = PGROUNDDOWN(r_stval());
-    pte_t *pte = walk(p->pagetable, rnd_dwn);
+    pte_t *pte = walk(p->pagetable, rnd_dwn, 0);
     if(pte==0){
       p->killed =1;
       exit(-1);
+    }
+    if(!(*pte & PTE_V) || !(*pte & PTE_U) || !(*pte & PTE_flag)){
+      p->killed =1;
+      exit(-1);
+
+    } else if((*pte & PTE_V) && (*pte & PTE_U) && (*pte & PTE_flag)){
+      uint64 flag = PTE_FLAGS(*pte);
+      flag |= PTE_W;
+      flag &= ~PTE_flag;
+      char *pge = kalloc();
+      if(pge==0){
+        p->killed =1;
+        exit(-1);
+      }
+      char *pa = (char *)PTE2PA(*pte);
+      memmove(pge, pa, PGSIZE);
+      uvmunmap(p->pagetable, rnd_dwn, PGSIZE, 0);
+      if(mappages(p->pagetable, rnd_dwn, PGSIZE, (uint64)pge, flag) != 0){
+        kfree(pge);
+        p->killed =1;
+        exit(-1);
+      }
     }
 
   } else {

@@ -75,7 +75,7 @@ kvminithart()
 //   21..39 -- 9 bits of level-1 index.
 //   12..20 -- 9 bits of level-0 index.
 //    0..12 -- 12 bits of byte offset within the page.
-static pte_t *
+pte_t * //got rid of static
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
@@ -372,6 +372,9 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
+    if(va0 > MAXVA){ //added
+      return -1;
+    }
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
