@@ -111,9 +111,9 @@ void Counter_increment(uint64 pa){
   release(&kmem.lock);
 }
 
-void Counter_decrement(uint64 pa){
+/*void Counter_decrement(uint64 pa){
   acquire(&kmem.lock);
   int index = pa>>12;
   kmem.counter[index]-=1;
   release(&kmem.lock);
-}
+}*/

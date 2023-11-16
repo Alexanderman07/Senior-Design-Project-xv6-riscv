@@ -336,10 +336,12 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     //if((mem = kalloc()) == 0)
     //  goto err;
     //memmove(mem, (char*)pa, PGSIZE);
+    Counter_increment(pa);
     if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){ //changed to pa to map parent's physical to child's virtual page
       //kfree(mem);
       goto err;
     }
+    //Counter_increment(pa);
     uvmunmap(old, i, PGSIZE, 0);
     if(mappages(old, i, PGSIZE, (uint64)pa, flags) != 0){ //changed to pa to map parent's physical to child's virtual page
       //kfree(mem);
@@ -347,7 +349,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     }
 
     //*pte |= PTE_flag; //my own privilege flag defined in riscv.h
-    Counter_increment(pa);
+    //Counter_increment(pa);
   }
   return 0;
 

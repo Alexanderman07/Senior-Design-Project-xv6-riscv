@@ -81,10 +81,10 @@ usertrap(void)
       flag |= PTE_W;
       flag &= ~PTE_flag;
       char *pge = kalloc();
-      if(pge==0){
+      /*if(pge==0){
         p->killed =1;
         exit(-1);
-      }
+      }*/
       char *pa = (char *)PTE2PA(*pte);
       memmove(pge, pa, PGSIZE);
       uvmunmap(p->pagetable, rnd_dwn, PGSIZE, 0);
@@ -97,8 +97,8 @@ usertrap(void)
     }
 
   } else {
-    printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
-    printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+    //printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+    //printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
 
