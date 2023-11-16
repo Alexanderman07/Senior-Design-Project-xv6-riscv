@@ -13,11 +13,10 @@ uint64 record[100000];
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
-                   // defined by kernel.ld.
+                   // defined444 by kernel.ld.
 
 struct run {
   struct run *next;
-  int counter;
 };
 
 struct {
@@ -60,9 +59,18 @@ kfree(void *pa)
   r = (struct run*)pa;
 
   acquire(&kmem.lock);
+  int index = (uint64)r/PGSIZE;
+  kmem.counter[index] -= 1;
+  int ref = kmem.counter[index];
+  release(&kmem.lock);
+
+  if(ref >0){
+    return; //skips next steps;
+  }
+
+  acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
-  r->counter -= 1;
   release(&kmem.lock);
 }
 
@@ -77,20 +85,23 @@ kalloc(void)
   r = kmem.freelist;
   //r->counter = 1;
   //record[(uint64)end] = 1;
-  if(r)
-    //int index = (uint64)r / PGSIZE;
-    //counter[index] = 1;
+  if(r){
+    int index = (uint64)r / PGSIZE;
+    kmem.counter[index] = 1;
     kmem.freelist = r->next;
+  }
   release(&kmem.lock);
 
-  if(r)
+  if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
+  }
   return (void*)r;
 }
 
-void Counter_increment(void *pa){
-  struct run *r = pa;
+void Counter_increment(uint64 pa){
+  //struct run *r = pa;
   acquire(&kmem.lock);
-  r->counter+=1;
+  int index = pa/PGSIZE;
+  kmem.counter[index]+=1;
   release(&kmem.lock);
 }
