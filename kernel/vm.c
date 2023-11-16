@@ -340,13 +340,19 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       //kfree(mem);
       goto err;
     }
+    uvmunmap(old, i, PGSIZE, 0);
+    if(mappages(old, i, PGSIZE, (uint64)pa, flags) != 0){ //changed to pa to map parent's physical to child's virtual page
+      //kfree(mem);
+      goto err;
+    }
+
     //*pte |= PTE_flag; //my own privilege flag defined in riscv.h
     Counter_increment(pa);
   }
   return 0;
 
  err:
-  uvmunmap(new, 0, i/PGSIZE, 1);
+  uvmunmap(new, 0, i>>12, 1); //added: shift 12, divide by PGSIZE
   return -1;
 }
 
@@ -376,19 +382,16 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(va0 > MAXVA){ //added
       return -1;
     }
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
 
     pte_t *pte;
     pte = walk(pagetable, va0, 0);
     if(pte == 0){
       return -1;
     }
-    if((*pte & PTE_U) || (*pte & PTE_V)){
+    if((*pte & PTE_U)==0 || (*pte & PTE_V)==0){
       return -1;
     }
-    else if((*pte & PTE_flag)){
+    if((*pte & PTE_flag)){
       uint64 flag = PTE_FLAGS(*pte);
       flag |= PTE_W; //record
       flag &= ~PTE_flag; //clear
@@ -397,15 +400,18 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
       if(pge == 0){
         return -1;
       }
-      char *pa = (char *)PTE2PA(*pte);
-      memmove(pge, pa, PGSIZE);
+      //char *pa = (char *)PTE2PA(*pte);
+      memmove(pge, (void *)pa0, PGSIZE);
       uvmunmap(pagetable, va0, PGSIZE, 0);
+      kfree((void *)pa0);
       if(mappages(pagetable, va0, PGSIZE, (uint64)pge, flag) != 0){
-        kfree(pge);
+        //kfree(pge);
         return -1;
       }
     }
-
+    pa0 = PTE2PA(*pte);
+    if(pa0 == 0)
+      return -1;
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;

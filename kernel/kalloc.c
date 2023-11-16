@@ -22,7 +22,7 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
-  int counter[(PHYSTOP-KERNBASE)/PGSIZE];
+  int counter[(PHYSTOP>>12)];
 } kmem;
 
 void
@@ -30,6 +30,9 @@ kinit()
 {
   initlock(&kmem.lock, "kmem");
   freerange(end, (void*)PHYSTOP);
+  for(int i = 0; i < PHYSTOP>>12; i++){
+    kmem.counter[i] = 0;
+  }
 }
 
 void
@@ -54,19 +57,21 @@ kfree(void *pa)
     panic("kfree");
 
   // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  //memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
 
   acquire(&kmem.lock);
-  int index = (uint64)r/PGSIZE;
+  int index = (uint64)r>>12;
   kmem.counter[index] -= 1;
-  int ref = kmem.counter[index];
   release(&kmem.lock);
 
-  if(ref >0){
-    return; //skips next steps;
-  }
+if(kmem.counter[index] > 0){
+  return;
+}
+
+// Fill with junk to catch dangling refs.
+  memset(pa, 1, PGSIZE);
 
   acquire(&kmem.lock);
   r->next = kmem.freelist;
@@ -86,7 +91,7 @@ kalloc(void)
   //r->counter = 1;
   //record[(uint64)end] = 1;
   if(r){
-    int index = (uint64)r / PGSIZE;
+    int index = (uint64)r>>12;
     kmem.counter[index] = 1;
     kmem.freelist = r->next;
   }
@@ -101,7 +106,14 @@ kalloc(void)
 void Counter_increment(uint64 pa){
   //struct run *r = pa;
   acquire(&kmem.lock);
-  int index = pa/PGSIZE;
+  int index = pa>>12;
   kmem.counter[index]+=1;
+  release(&kmem.lock);
+}
+
+void Counter_decrement(uint64 pa){
+  acquire(&kmem.lock);
+  int index = pa>>12;
+  kmem.counter[index]-=1;
   release(&kmem.lock);
 }

@@ -76,11 +76,7 @@ usertrap(void)
       p->killed =1;
       exit(-1);
     }
-    if(!(*pte & PTE_V) || !(*pte & PTE_U) || !(*pte & PTE_flag)){
-      p->killed =1;
-      exit(-1);
-
-    } else if((*pte & PTE_V) && (*pte & PTE_U) && (*pte & PTE_flag)){
+    if((*pte & PTE_V) && (*pte & PTE_U) && (*pte & PTE_flag)){
       uint64 flag = PTE_FLAGS(*pte);
       flag |= PTE_W;
       flag &= ~PTE_flag;
@@ -92,8 +88,9 @@ usertrap(void)
       char *pa = (char *)PTE2PA(*pte);
       memmove(pge, pa, PGSIZE);
       uvmunmap(p->pagetable, rnd_dwn, PGSIZE, 0);
+      kfree(pa);
       if(mappages(p->pagetable, rnd_dwn, PGSIZE, (uint64)pge, flag) != 0){
-        kfree(pge);
+        //kfree(pge);
         p->killed =1;
         exit(-1);
       }

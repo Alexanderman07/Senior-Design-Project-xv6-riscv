@@ -63,6 +63,7 @@ void*           kalloc(void);
 void            kfree(void *);
 void            kinit();
 void            Counter_increment(uint64);
+void            Counter_decrement(uint64);
 
 // log.c
 void            initlog(int, struct superblock*);
