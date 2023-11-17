@@ -8,7 +8,6 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
-uint64 record[100000];
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -88,8 +87,6 @@ kalloc(void)
   struct run *r;
   acquire(&kmem.lock);
   r = kmem.freelist;
-  //r->counter = 1;
-  //record[(uint64)end] = 1;
   if(r){
     int index = (uint64)r>>12;
     kmem.counter[index] = 1;
@@ -104,16 +101,8 @@ kalloc(void)
 }
 
 void Counter_increment(uint64 pa){
-  //struct run *r = pa;
   acquire(&kmem.lock);
   int index = pa>>12;
   kmem.counter[index]+=1;
   release(&kmem.lock);
 }
-
-/*void Counter_decrement(uint64 pa){
-  acquire(&kmem.lock);
-  int index = pa>>12;
-  kmem.counter[index]-=1;
-  release(&kmem.lock);
-}*/
