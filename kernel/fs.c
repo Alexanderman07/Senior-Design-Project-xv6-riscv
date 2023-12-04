@@ -417,14 +417,14 @@ bmap(struct inode *ip, uint bn)
 
     }
 
-    brelse(bp);
+    brelse(bp); //call if bread was used
 
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
     uint loc = bn % NINDIRECT;
     if ((addr = a[loc]) == 0) {
       a[loc] = addr = balloc(ip->dev);
-      log_write(bp);
+      log_write(bp); //record block number
     }
 
     brelse(bp);
