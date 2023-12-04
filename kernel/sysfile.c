@@ -252,7 +252,7 @@ create(char *path, short type, short major, short minor)
   if((ip = dirlookup(dp, name, 0)) != 0){
     iunlockput(dp);
     ilock(ip);
-    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE))
+    if(type == T_FILE && (ip->type == T_FILE || ip->type == T_DEVICE || ip->type == T_SYMLINK)) //edited to include T_SYMLINK
       return ip;
     iunlockput(ip);
     return 0;
@@ -287,6 +287,31 @@ uint64
 sys_symlink(void)
 {
   //your implementation goes here
+  char tar[MAXPATH];
+  char path[MAXARG];
+  if(argstr(0, tar, MAXPATH) <= -1){
+    return -1;
+  }
+
+  if(argstr(1, path, MAXPATH) <= -1){
+    return -1;
+  }
+
+  begin_op(ROOTDEV);
+  struct inode *lnk = create(path, T_SYMLINK, 0, 0);
+
+  if(lnk==0){
+    end_op(ROOTDEV);
+    return -1;
+  }
+
+  int sz = strlen(tar);
+  writei(lnk, 0, (uint64)&sz, 0, sizeof(int));
+  writei(lnk, 0, (uint64)tar, sizeof(int), sz+1);
+  iupdate(lnk);
+  iunlockput(lnk);
+  end_op(ROOTDEV);
+
   return 0;
 }
 
@@ -336,6 +361,38 @@ sys_open(void)
     end_op(ROOTDEV);
     return -1;
   }
+
+  //edits begin here
+  int cnt = 0;
+  int len = 0;
+  if(ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)){
+    //int cnt = 0;
+    while(ip->type == T_SYMLINK && cnt < 10){
+      //int len = 0;
+      readi(ip, 0, (uint64)&len, 0, sizeof(int));
+
+      if(len > MAXPATH){
+        panic("open: a corrupt symlink inode is present");
+      }
+      
+      readi(ip, 0, (uint64)path, sizeof(int), len+1);
+      iunlockput(ip);
+
+      if((ip=namei(path))==0) {
+        end_op(ROOTDEV);
+        return -1;
+      }
+
+      ilock(ip);
+      cnt++;
+    }
+    if(cnt>=10){
+      iunlockput(ip);
+      end_op(ROOTDEV);
+      return -1;
+    }
+  }
+//edits end here
 
   if(ip->type == T_DEVICE){
     f->type = FD_DEVICE;

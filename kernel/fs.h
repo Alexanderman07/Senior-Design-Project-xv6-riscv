@@ -27,8 +27,8 @@ struct superblock {
 #define NDIRECT 11 //changed from 12
 #define NINDIRECT (BSIZE / sizeof(uint)) //1024/4 = 256
 //added and modified code below 
-#define NDOUBLY_INDIRECT (NINDIRECT*NINDIRECT) //256*256
-#define MAXFILE (NDIRECT + NINDIRECT + NDOUBLY_INDIRECT) //65803 blocks total
+#define DOUBLY_INDIRECT (NINDIRECT*NINDIRECT) //256*256
+#define MAXFILE (NDIRECT + NINDIRECT + DOUBLY_INDIRECT) //65803 blocks total
 //---------------------------------------------------------
 
 // On-disk inode structure
