@@ -298,9 +298,9 @@ sys_symlink(void)
   }
 
   begin_op(ROOTDEV);
-  struct inode *lnk = create(path, T_SYMLINK, 0, 0);
+  struct inode *lnk = create(path, T_SYMLINK, 0, 0); //added T_SYMLINK to create on line 255
 
-  if(lnk==0){
+  if(lnk==0){ //check for error
     end_op(ROOTDEV);
     return -1;
   }
