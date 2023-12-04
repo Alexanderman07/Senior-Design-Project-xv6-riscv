@@ -366,9 +366,7 @@ sys_open(void)
   int cnt = 0;
   int len = 0;
   if(ip->type == T_SYMLINK && !(omode & O_NOFOLLOW)){
-    //int cnt = 0;
     while(ip->type == T_SYMLINK && cnt < 10){
-      //int len = 0;
       readi(ip, 0, (uint64)&len, 0, sizeof(int));
 
       if(len > MAXPATH){
