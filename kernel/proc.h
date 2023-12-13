@@ -83,7 +83,7 @@ struct trapframe {
 enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 //added def of vma struct
-struct vm_area_struct {
+struct vm_st {
   uint64 addr;
   uint64 end;
   int prot;
@@ -117,6 +117,6 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   //added 
-  struct vm_area_struct vma[16]; //fixed size of 16 should be sufficient
-  uint64 cur_max;
+  struct vm_st vma[16]; //fixed size of 16 should be sufficient
+  struct vm_st* vma_table[4];
 };

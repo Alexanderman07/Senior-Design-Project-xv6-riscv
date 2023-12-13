@@ -32,6 +32,41 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
+int helper(pagetable_t pagetable, uint64 va){
+  struct proc *p = myproc();
+  if(va > MAXVA || va >= p->sz){
+    return -1;
+  }
+  va = PGROUNDDOWN(va);
+  int index;
+  for(index = 0; index < 16; index++){
+    if(p->vma[index].used == 1 && va >= p->vma[index].addr && va < p->vma[index].end){
+      break;
+    }
+  }
+
+  if(index == 16){
+    return -1;
+  }
+
+  uint64 addr = p->vma[index].addr;
+  int prot = p->vma[index].prot;
+  struct file *pf = p->vma[index].pf;
+
+  char *mem;
+  mem = (char *)kalloc();
+
+  if(mem == 0){
+    return -1;
+  }
+  memset(mem, 0, PGSIZE);
+  begin_op();
+  ilock(pf->ip);
+  if(readi(pf->ip, 0, (uint64)mem, va-addr, PGSIZE) < 0){
+
+  }
+}
+
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -70,6 +105,11 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if((r_scause()==13) || (r_scause()==15)){
+    if(helper_func(p->pagetable, r_stval())<0){
+      p->killed = 1;
+    }
+
   } else {
     printf("usertrap(): unexpected scause %p (%s) pid=%d\n", r_scause(), scause_desc(r_scause()), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());

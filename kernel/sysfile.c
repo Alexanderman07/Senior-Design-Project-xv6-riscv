@@ -484,7 +484,7 @@ sys_pipe(void)
 }
 
 uint64 
-mmap(){
+sys_mmap(void){
   struct proc *p = myproc();
   int length, prot, flags, fd; //no offset and addr because it will always be 0, so no reason to check them
   struct file *f;
