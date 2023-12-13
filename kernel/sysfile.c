@@ -483,3 +483,42 @@ sys_pipe(void)
   return 0;
 }
 
+uint64 
+mmap(){
+  struct proc *p = myproc();
+  int length, prot, flags, fd; //no offset and addr because it will always be 0, so no reason to check them
+  struct file *f;
+  if(argint(1, &length) < 0 || argint(2, &prot) < 0 || argint(3, &flags) < 0 || argfd(4, &fd, &f) < 0){
+    return -1;
+  }
+
+  if(!f->writable && (prot&PROT_WRITE)&&flags == MAP_SHARED){
+    return -1;
+  }
+
+  int index;
+  for(index = 0; index < 16; index++){
+    if(p->vma[index].used == 0){
+      break;
+    }
+  }
+
+  if(index != 16){
+    filedup(f);
+
+    uint64 va = (p->sz);
+    p->sz = va + length;
+
+    p->vma[index].addr = va;
+    p->vma[index].end = PGROUNDUP(va+length);
+    p->vma[index].prot = prot;
+    p->vma[index].flags = flags;
+    p->vma[index].offset = 0;
+    p->vma[index].pf = f;
+    p->vma[index].used = 1;
+    return va;
+  }
+  else{
+    return -1;
+  }
+}
