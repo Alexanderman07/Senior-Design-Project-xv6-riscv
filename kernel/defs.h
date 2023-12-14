@@ -147,6 +147,10 @@ void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
 
+//added
+//int             mmap_read(struct file *, uint64, int, int);
+//int               helper(pagetable_t, uint64);
+
 // uart.c
 void            uartinit(void);
 void            uartintr(void);

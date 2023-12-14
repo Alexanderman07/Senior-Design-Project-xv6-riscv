@@ -8,6 +8,7 @@
 #include "file.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h" //added
 
 struct cpu cpus[NCPU];
 
@@ -689,4 +690,57 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+int helper(pagetable_t pagetable, uint64 va){
+  struct proc *p = myproc();
+  if(va > MAXVA || va >= p->sz){
+    return -1;
+  }
+  va = PGROUNDDOWN(va);
+  int index;
+  for(index = 0; index < 16; index++){
+    if(p->vma[index].used == 1 && va >= p->vma[index].addr && va < p->vma[index].end){
+      break;
+    }
+  }
+
+  if(index == 16){
+    return -1;
+  }
+
+  uint64 addr = p->vma[index].addr;
+  int prot = p->vma[index].prot;
+  struct file *pf = p->vma[index].pf;
+
+  char *mem;
+  mem = (char *)kalloc();
+
+  if(mem == 0){
+    return -1;
+  }
+  memset(mem, 0, PGSIZE);
+  begin_op(ROOTDEV);
+  ilock(pf->ip);
+
+  if(readi(pf->ip, 0, (uint64)mem, va-addr, PGSIZE) < 0){
+    iunlock(pf->ip);
+    end_op(ROOTDEV);
+    return -1;
+  }
+
+  iunlock(pf->ip);
+  end_op(ROOTDEV);
+  uint64 f = PTE_U;
+  if(prot & PROT_READ){
+    f |= PTE_R; 
+  }
+  if(prot & PROT_WRITE){
+    f |= PTE_W;
+  }
+  if(mappages(pagetable, va, PGSIZE, (uint64)mem, f) != 0){
+    kfree(mem);
+    return -1;
+  }
+  return 0;
 }

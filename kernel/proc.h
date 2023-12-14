@@ -120,3 +120,5 @@ struct proc {
   struct vm_st vma[16]; //fixed size of 16 should be sufficient
   struct vm_st* vma_table[4];
 };
+
+int helper(pagetable_t, uint64);

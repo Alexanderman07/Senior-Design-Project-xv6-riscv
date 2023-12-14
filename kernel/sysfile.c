@@ -522,3 +522,41 @@ sys_mmap(void){
     return -1;
   }
 }
+
+uint64
+sys_munmap(void){
+  struct proc *p = myproc();
+  uint64 addr;
+  int len;
+
+  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0){
+    return -1;
+  }
+
+  int index;
+  for(index = 0; index < 16; index++){
+    if(p->vma[index].used == 1 && p->vma[index].addr <= addr && addr < p->vma[index].end){
+      if(p->vma[index].flags==MAP_SHARED){
+        begin_op(ROOTDEV);
+        ilock(p->vma[index].pf->ip);
+        writei(p->vma[index].pf->ip,1,addr,addr - p->vma[index].addr,len);
+        iunlock(p->vma[index].pf->ip);
+        end_op(ROOTDEV);
+      }
+      uvmunmap(p->pagetable, addr, len/PGSIZE, 1);
+      
+      if(addr == p->vma[index].addr){
+        if(p->vma[index].end==addr+len){
+          filedup(p->vma[index].pf); //fileddown
+          p->vma[index].used = 0;
+        } else {
+          p->vma[index].addr = addr+len;
+        }
+      } else if(addr+len == p->vma[index].end){
+        p->vma[index].end = addr+len;
+      }
+      return 0;
+    }
+  }
+  return -1;
+}
