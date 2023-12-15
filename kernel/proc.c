@@ -273,9 +273,19 @@ fork(void)
   np->tf->a0 = 0;
 
   // increment reference counts on open file descriptors.
-  for(i = 0; i < NOFILE; i++)
+  for(i = 0; i < NOFILE; i++){
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
+
+    np->vma[i].addr = p->vma[i].addr; //added so child has same mapped regions as it's parent
+    np->vma[i].length = p->vma[i].length;
+    np->vma[i].prot = p->vma[i].prot;
+    np->vma[i].flags = p->vma[i].flags;
+    np->vma[i].used = p->vma[i].used;
+    if((np->vma[i].pf = p->vma[i].pf)!=0){
+      filedup(np->vma[i].pf); 
+    }//end of edits in fork
+  }
   np->cwd = idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
@@ -692,38 +702,40 @@ procdump(void)
   }
 }
 
-int helper(pagetable_t pagetable, uint64 va){
+int usertrap_helper(pagetable_t pagetable, uint64 va){ //call from proc.c to avoid "file.h" conflicts
   struct proc *p = myproc();
-  if(va > MAXVA || va >= p->sz){
+  if(va > MAXVA || va >= p->sz){ //makes sure va doesnt go over pre-set sizes
     return -1;
   }
   va = PGROUNDDOWN(va);
-  int index;
-  for(index = 0; index < 16; index++){
-    if(p->vma[index].used == 1 && va >= p->vma[index].addr && va < p->vma[index].end){
+  int idx;
+  for(idx = 0; idx < 16; idx++){ //find vma location index that is in use to read the contents and do the mapping
+    if(p->vma[idx].used == 1 && va >= p->vma[idx].addr && va < p->vma[idx].length){
       break;
     }
   }
 
-  if(index == 16){
+  if(idx == 16){
     return -1;
   }
 
-  uint64 addr = p->vma[index].addr;
-  int prot = p->vma[index].prot;
-  struct file *pf = p->vma[index].pf;
+  uint64 addr = p->vma[idx].addr;
 
-  char *mem;
+  int prot = p->vma[idx].prot;
+
+  struct file *pf = p->vma[idx].pf;
+
+  char *mem; //allocate and map
   mem = (char *)kalloc();
-
   if(mem == 0){
     return -1;
   }
   memset(mem, 0, PGSIZE);
+
   begin_op(ROOTDEV);
   ilock(pf->ip);
 
-  if(readi(pf->ip, 0, (uint64)mem, va-addr, PGSIZE) < 0){
+  if(readi(pf->ip, 0, (uint64)mem, va-addr, PGSIZE) < 0){ //read to transfer data from file to physical page
     iunlock(pf->ip);
     end_op(ROOTDEV);
     return -1;
@@ -731,14 +743,14 @@ int helper(pagetable_t pagetable, uint64 va){
 
   iunlock(pf->ip);
   end_op(ROOTDEV);
-  uint64 f = PTE_U;
-  if(prot & PROT_READ){
+  uint64 f = PTE_U; //add necessariy flags before calling mappages 
+  if(prot & PROT_READ){//no limit for reading pages, so passing in directly should be fine
     f |= PTE_R; 
   }
   if(prot & PROT_WRITE){
     f |= PTE_W;
   }
-  if(mappages(pagetable, va, PGSIZE, (uint64)mem, f) != 0){
+  if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, f) != 0){ //map physical map to user's virtual memory space
     kfree(mem);
     return -1;
   }

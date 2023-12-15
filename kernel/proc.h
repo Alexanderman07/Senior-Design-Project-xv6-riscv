@@ -85,7 +85,7 @@ enum procstate { UNUSED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 //added def of vma struct
 struct vm_st {
   uint64 addr;
-  uint64 end;
+  uint64 length;
   int prot;
   int flags;
   int fd;
@@ -118,7 +118,6 @@ struct proc {
 
   //added 
   struct vm_st vma[16]; //fixed size of 16 should be sufficient
-  struct vm_st* vma_table[4];
 };
 
-int helper(pagetable_t, uint64);
+int usertrap_helper(pagetable_t, uint64); //function declaration so we can call it in trap.c in usertrap()

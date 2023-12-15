@@ -4,7 +4,7 @@
 #define O_CREATE  0x200
 
 //added
-#define PROT_READ 0x000
-#define PROT_WRITE 0x001
-#define MAP_PRIVATE 0x000
-#define MAP_SHARED 0x001
+#define PROT_READ 0x001
+#define PROT_WRITE 0x002
+#define MAP_PRIVATE 0x001
+#define MAP_SHARED 0x002

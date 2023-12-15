@@ -6,7 +6,7 @@
 #include "proc.h"
 #include "defs.h"
 //#include "file.h" //added
-#include "fcntl.h" //added
+//#include "fcntl.h" //added
 //#include "sleeplock.h" //added
 //#include "fs.h" //added
 
@@ -75,41 +75,10 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else if((r_scause()==13) || (r_scause()==15)){
-    if(helper(p->pagetable, r_stval()) < 0){ //helper called from proc.c
+    if(usertrap_helper(p->pagetable, r_stval()) < 0){ //usertrap_helper called from proc.c
       p->killed = 1;
-    }
-    /*uint64 fault_addr = r_stval();
-    struct vm_st *vm = 0;
-    for(int i = 0; i < 100; i++){
-      if(p->vma[i].addr <= fault_addr && fault_addr <= p->vma[i].end){
-        vm = &p->vma[i];
-        break;
-      }
-    }
-
-    if(!vm){ //error with vm addr
-      p -> killed = 1;
       exit(-1);
     }
-    
-    char *pa = kalloc();
-    if(pa == 0){
-      panic("kalloc");
-    }
-    memset(pa, 0, PGSIZE);
-    uint64 fault_addr_head = PGROUNDDOWN(fault_addr);
-    if(mappages(p->pagetable, fault_addr_head, PGSIZE, (uint64)pa, vm->prot | PTE_U) != 0){
-      kfree(pa);
-      p->killed = 1;
-    }
-
-    int distance = fault_addr_head - vm->addr;
-    mmap_read(vm->pf, fault_addr_head, distance, PGSIZE);
-  ilock(vm->pf->ip);
-  int n = readi(vm->pf->ip, 1, fault_addr_head, distance, PGSIZE);
-  distance += n;
-  iunlock(vm->pf->ip);*/
-
   } else {
     printf("usertrap(): unexpected scause %p (%s) pid=%d\n", r_scause(), scause_desc(r_scause()), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());

@@ -484,7 +484,7 @@ sys_pipe(void)
 }
 
 uint64 
-sys_mmap(void){
+sys_mmap(void){ //allocate vma and update it's struct's variables
   struct proc *p = myproc();
   int length, prot, flags, fd; //no offset and addr because it will always be 0, so no reason to check them
   struct file *f;
@@ -492,34 +492,34 @@ sys_mmap(void){
     return -1;
   }
 
-  if(!f->writable && (prot&PROT_WRITE)&&flags == MAP_SHARED){
+  if((!f->writable) && (prot & PROT_WRITE) && (flags & MAP_SHARED)){ //flag pre-checks 
     return -1;
   }
 
-  int index;
-  for(index = 0; index < 16; index++){
-    if(p->vma[index].used == 0){
-      break;
+  int idx;
+  for(idx = 0; idx < 16; idx++){ //find unused region in fixed-array to allocate a VMA entry
+    if(p->vma[idx].used == 0){ //0 means not in use
+      break; //stop, don't proceed
     }
   }
 
-  if(index != 16){
+  if(idx != 16){ //increment to keep track of VMAs, shouldn't go over fixed-size array
     filedup(f);
 
-    uint64 va = (p->sz);
-    p->sz = va + length;
+    uint64 mapped_va = (p->sz); //pointer to mapped area
+    p->sz = mapped_va + length;
 
-    p->vma[index].addr = va;
-    p->vma[index].end = PGROUNDUP(va+length);
-    p->vma[index].prot = prot;
-    p->vma[index].flags = flags;
-    p->vma[index].offset = 0;
-    p->vma[index].pf = f;
-    p->vma[index].used = 1;
-    return va;
+    p->vma[idx].addr = mapped_va; //update variables
+    p->vma[idx].length = PGROUNDUP(mapped_va+length);
+    p->vma[idx].prot = prot;
+    p->vma[idx].flags = flags;
+    p->vma[idx].offset = 0;
+    p->vma[idx].pf = f;
+    p->vma[idx].used = 1;
+    return mapped_va; //pointer to mapped area returned 
   }
   else{
-    return -1;
+    return -1; //returns if there is an error 
   }
 }
 
@@ -527,33 +527,33 @@ uint64
 sys_munmap(void){
   struct proc *p = myproc();
   uint64 addr;
-  int len;
+  int length;
 
-  if(argaddr(0, &addr) < 0 || argint(1, &len) < 0){
+  if(argaddr(0, &addr) < 0 || argint(1, &length) < 0){
     return -1;
   }
 
-  int index;
-  for(index = 0; index < 16; index++){
-    if(p->vma[index].used == 1 && p->vma[index].addr <= addr && addr < p->vma[index].end){
-      if(p->vma[index].flags==MAP_SHARED){
+  int idx;
+  for(idx = 0; idx < 16; idx++){ 
+    if(p->vma[idx].used == 1 && p->vma[idx].addr <= addr && addr < p->vma[idx].length){
+      if(p->vma[idx].flags==MAP_SHARED){ //write the page back to the file
         begin_op(ROOTDEV);
-        ilock(p->vma[index].pf->ip);
-        writei(p->vma[index].pf->ip,1,addr,addr - p->vma[index].addr,len);
-        iunlock(p->vma[index].pf->ip);
+        ilock(p->vma[idx].pf->ip);
+        writei(p->vma[idx].pf->ip,1,addr,addr - p->vma[idx].addr,length);
+        iunlock(p->vma[idx].pf->ip);
         end_op(ROOTDEV);
       }
-      uvmunmap(p->pagetable, addr, len/PGSIZE, 1);
+      uvmunmap(p->pagetable, addr, length/PGSIZE, 1); //removes mapped memory regions
       
-      if(addr == p->vma[index].addr){
-        if(p->vma[index].end==addr+len){
-          filedup(p->vma[index].pf); //fileddown
-          p->vma[index].used = 0;
+      if(addr == p->vma[idx].addr){
+        if(p->vma[idx].length==addr+length){
+          filedup(p->vma[idx].pf); //increase the reference count of the file
+          p->vma[idx].used = 0;
         } else {
-          p->vma[index].addr = addr+len;
+          p->vma[idx].addr = addr+length;
         }
-      } else if(addr+len == p->vma[index].end){
-        p->vma[index].end = addr+len;
+      } else if(addr+length == p->vma[idx].length){
+        p->vma[idx].length = addr+length;
       }
       return 0;
     }
